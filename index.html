@@ -104,7 +104,7 @@
         </select>
       </div>
       <div id="map" style="width:100%;height:520px;"></div>
-      <div class="legend-note">Quadrant colours: Q1 Critical (red), Q2 Priority (orange), Q3 Preventative (blue), Q4 Best Practice (green) — matches the underlying research figures.</div>
+      <div class="legend-note">The full Kenyan map is always shown in grey; selecting a quadrant highlights only those counties by the chosen metric (urgency: green = low, red = high). Click any county for its full profile.</div>
     </div>
 
     <div class="card">
@@ -207,41 +207,61 @@ function renderMap(){
   const activeSet = new Set(filtered.map(c=>c.county));
   const byName = Object.fromEntries(COUNTIES.map(c=>[c.county,c]));
 
-  const locations = GEO.features.map(f=>f.properties.county);
-  const z = locations.map(n=>{
-    const c = byName[n];
-    if(!c || !activeSet.has(n)) return null;
-    return c[currentMetric];
-  });
-  const text = locations.map(n=>{
+  const allNames = GEO.features.map(f=>f.properties.county);
+  const activeNames = allNames.filter(n=>byName[n] && activeSet.has(n));
+
+  const hover = n=>{
     const c = byName[n];
     if(!c) return n;
     return `<b>${n}</b><br>${meta.label}: ${meta.fmt(c[currentMetric])}<br>Tier: ${c.urgencyTier}<br>Quadrant: ${c.quadrant}`;
-  });
+  };
 
-  const trace = [{
+  // Trace 1: base — the ENTIRE Kenyan map, every county in a muted neutral fill,
+  // so the country silhouette is always visible. Clickable for full profiles.
+  const baseTrace = {
     type:'choropleth',
     geojson:GEO,
     featureidkey:'properties.county',
-    locations, z, text,
+    locations:allNames,
+    z:allNames.map(()=>0),
+    text:allNames.map(hover),
     hoverinfo:'text',
+    showscale:false,
+    colorscale:[[0,'#1c2a42'],[1,'#1c2a42']],
+    marker:{line:{color:'#31435f', width:0.7}},
+  };
+
+  // Trace 2: active — only counties matching the quadrant filter, coloured by
+  // the selected metric on a fixed 0..1 scale so the colourbar stays stable.
+  const activeTrace = {
+    type:'choropleth',
+    geojson:GEO,
+    featureidkey:'properties.county',
+    locations:activeNames,
+    z:activeNames.map(n=>byName[n][currentMetric]),
+    text:activeNames.map(hover),
+    hoverinfo:'text',
+    zmin:0,
+    zmax: currentMetric==='atRisk2026' ? Math.max(...COUNTIES.map(c=>c[currentMetric])) : 1,
     colorscale: meta.scale.map(([s,c])=>[s,c]),
-    marker:{line:{color:'#0b1220', width:0.8}},
-    colorbar:{title:{text:meta.label, font:{color:'#93a1bd', size:11}}, tickfont:{color:'#93a1bd', size:10}},
+    marker:{line:{color:'#0b1220', width:0.9}},
+    colorbar:{title:{text:meta.label, font:{color:'#93a1bd', size:11}}, tickfont:{color:'#93a1bd', size:10},
+              len:0.75, thickness:14, x:1.0, outlinewidth:0},
     showscale:true,
-  }];
+  };
 
   const layout = {
     geo:{
       fitbounds:'locations', visible:false,
       bgcolor:'rgba(0,0,0,0)',
+      showframe:false,
+      projection:{type:'mercator'},
     },
     paper_bgcolor:'rgba(0,0,0,0)',
     plot_bgcolor:'rgba(0,0,0,0)',
     margin:{t:0,b:0,l:0,r:0},
-    dragmode:false,
   };
-  Plotly.newPlot('map', trace, layout, {displayModeBar:false, responsive:true});
+  Plotly.newPlot('map', [baseTrace, activeTrace], layout, {displayModeBar:false, responsive:true});
   document.getElementById('map').on('plotly_click', ev=>{
     const name = ev.points[0].location;
     if(name) showDetail(name);

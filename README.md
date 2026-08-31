@@ -2,8 +2,8 @@
 
 A single-page decision-support dashboard for county climate adaptation
 funding, built on the KHS 2023/24 model outputs (HistGradientBoosting +
-DEA-BCC/CACI). Includes a county choropleth and a Gemini-powered RAG
-assistant grounded on the 47-county dataset.
+DEA-BCC/CACI). Includes a county choropleth and a Groq-powered (Llama 3.3
+70B) RAG assistant grounded on the 47-county dataset.
 
 ## What's in this project (5 files, on purpose)
 
@@ -11,7 +11,7 @@ assistant grounded on the 47-county dataset.
 index.html            -> the whole UI (map, KPIs, table, chat) — static
 counties.json          -> the 47-county model output, used by the UI
 kenya_counties.geojson  -> county boundary polygons, used by the choropleth
-api/chat.js             -> serverless function: RAG endpoint calling Gemini
+api/chat.js             -> serverless function: RAG endpoint calling Groq (llama-3.3-70b-versatile)
 package.json             -> tells Vercel this is an ES module project
 ```
 
@@ -21,9 +21,8 @@ No framework, no build step, no database. Vercel serves `index.html`,
 
 ## Deploy in 5 minutes
 
-1. **Get a free Gemini API key**
-   Go to https://aistudio.google.com/apikey and create a key (no cost on
-   the free tier for this workload).
+1. **Get a free Groq API key**
+   Go to https://console.groq.com/keys and create a key (generous free tier, no credit card).
 
 2. **Push this folder to a GitHub repo**
    ```bash
@@ -44,7 +43,7 @@ No framework, no build step, no database. Vercel serves `index.html`,
 
 4. **Add the environment variable**
    - In the Vercel project → Settings → Environment Variables
-   - Add `GEMINI_API_KEY` = *(the key from step 1)*
+   - Add `GROQ_API_KEY` = *(the key from step 1)*
    - Redeploy (Deployments tab → ⋯ → Redeploy) so the function picks it up
 
 5. **Open the deployed URL** — the map, KPIs and table work immediately;
@@ -59,8 +58,8 @@ from that one file.
 
 ## Extending later
 
-- Swap `gemini-2.0-flash` for a newer Gemini model by editing one line
-  in `api/chat.js`.
+- Swap `llama-3.3-70b-versatile` for another Groq model by editing one line
+  in `api/chat.js` (see https://console.groq.com/docs/models).
 - Add more metrics to the map: extend `METRIC_META` in `index.html` and
   add the matching field to `counties.json`.
 - Add authentication or per-county drill-downs by adding more files
