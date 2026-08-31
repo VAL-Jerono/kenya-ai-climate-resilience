@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kenya Climate Resilience Decision Engine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#111a2b; --panel2:#0e1626; --border:#1f2c44;
+    --text:#e8edf7; --muted:#93a1bd; --accent:#3fd0c9; --accent2:#5b8cff;
+    --red:#e5484d; --orange:#f5a524; --green:#2ecc71; --blue:#4a90e2;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:linear-gradient(180deg,#0b1220,#0a0f1c);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:22px 28px 14px;border-bottom:1px solid var(--border);
+    display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;}
+  header h1{margin:0;font-size:22px;font-weight:700;letter-spacing:.2px;}
+  header h1 span{color:var(--accent);}
+  header p{margin:4px 0 0;color:var(--muted);font-size:13px;}
+  .badge{background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    padding:5px 10px;border-radius:20px;font-size:12px;}
+  main{max-width:1400px;margin:0 auto;padding:20px 24px 60px;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+  .kpi .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.5px;}
+  .kpi .value{font-size:26px;font-weight:700;margin-top:6px;}
+  .kpi .sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  .grid{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;}
+  @media (max-width:980px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px 6px;}
+  .card h2{font-size:15px;margin:0 0 4px;font-weight:600;}
+  .card .desc{color:var(--muted);font-size:12.5px;margin-bottom:8px;}
+  select,input,button{font-family:inherit;}
+  select{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    border-radius:8px;padding:6px 10px;font-size:13px;}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel);}
+  tr:hover td{background:rgba(255,255,255,.03);}
+  .tag{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+  .tag.Critical{background:rgba(229,72,77,.18);color:#ff8a8d;}
+  .tag.High{background:rgba(245,165,36,.18);color:#ffc25c;}
+  .tag.Moderate{background:rgba(46,204,113,.18);color:#6fe3a0;}
+  .tag.Low{background:rgba(74,144,226,.18);color:#8ec1ff;}
+  .scroll{max-height:420px;overflow:auto;}
+  #chatlog{height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;
+    padding:12px;background:var(--panel2);margin-bottom:10px;font-size:13.5px;line-height:1.5;}
+  .msg{margin-bottom:12px;}
+  .msg.user{color:#cfe0ff;}
+  .msg.bot{color:var(--text);}
+  .msg b{color:var(--accent);}
+  .chatrow{display:flex;gap:8px;}
+  .chatrow input{flex:1;border-radius:10px;border:1px solid var(--border);background:var(--panel2);
+    color:var(--text);padding:10px 12px;font-size:13.5px;}
+  .chatrow button{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;
+    color:#04121a;font-weight:700;padding:0 18px;border-radius:10px;cursor:pointer;}
+  .chatrow button:disabled{opacity:.5;cursor:default;}
+  .suggest{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .suggest button{background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    font-size:11.5px;padding:5px 9px;border-radius:14px;cursor:pointer;}
+  .suggest button:hover{color:var(--text);border-color:var(--accent);}
+  footer{text-align:center;color:var(--muted);font-size:11.5px;padding:20px;border-top:1px solid var(--border);}
+  #detail{font-size:13px;color:var(--muted);}
+  #detail b{color:var(--text);}
+  .legend-note{font-size:11px;color:var(--muted);margin-top:6px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>AI Climate Resilience <span>Decision Engine</span></h1>
+    <p>Kenya · 47 Counties · KHS 2023/24 (21,347 households) · Strathmore University</p>
+  </div>
+  <div class="badge">HistGradientBoosting + DEA-BCC (PuLP) + SHAP · ROC-AUC 0.881</div>
+</header>
+
+<main>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>County Choropleth</h2>
+      <div class="desc">Colour-coded by selected metric. Click a county for its full profile and recommended intervention.</div>
+      <div class="row">
+        <label style="color:var(--muted);font-size:12.5px;">Colour by:</label>
+        <select id="metricSelect">
+          <option value="urgency">Urgency Score (Q1 Critical priority)</option>
+          <option value="aiRisk">AI Predicted Compound Risk</option>
+          <option value="caci">CACI Adaptation Capacity</option>
+          <option value="disruptionRate">Observed Disruption Rate</option>
+          <option value="atRisk2026">Citizens At-Risk (2026 est.)</option>
+        </select>
+        <select id="quadrantFilter">
+          <option value="all">All quadrants</option>
+          <option value="Q1: CRITICAL">Q1: Critical</option>
+          <option value="Q2: PRIORITY">Q2: Priority</option>
+          <option value="Q3: PREVENTATIVE">Q3: Preventative</option>
+          <option value="Q4: BEST PRACTICE">Q4: Best Practice</option>
+        </select>
+      </div>
+      <div id="map" style="width:100%;height:520px;"></div>
+      <div class="legend-note">Quadrant colours: Q1 Critical (red), Q2 Priority (orange), Q3 Preventative (blue), Q4 Best Practice (green) — matches the underlying research figures.</div>
+    </div>
+
+    <div class="card">
+      <h2 id="detailTitle">Select a county</h2>
+      <div id="detail">Click any county on the map, or a row in the table below, to see its full risk & policy profile here.</div>
+      <div id="detailChart" style="width:100%;height:170px;margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <br/>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Top 15 Counties — Urgency Ranking</h2>
+      <div class="desc">Urgency = 0.40 × AI Risk + 0.35 × Disruption Rate + 0.25 × (1 − CACI Capacity)</div>
+      <div id="bar" style="width:100%;height:420px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>All 47 Counties</h2>
+      <div class="desc">Sortable table for county planners &amp; NDMA / WASREB budget teams.</div>
+      <div class="scroll">
+        <table id="tbl">
+          <thead><tr><th>County</th><th>Tier</th><th>Urgency</th><th>At-Risk 2026</th><th>Quadrant</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <br/>
+
+  <div class="card">
+    <h2>Ask the Climate Adaptation Assistant</h2>
+    <div class="desc">RAG-grounded on the 47-county recommendation dataset — ask about specific counties, budget priorities, or intervention rationale. Answers cite the underlying figures, not general knowledge.</div>
+    <div class="suggest" id="suggest"></div>
+    <div id="chatlog"></div>
+    <div class="chatrow">
+      <input id="chatInput" type="text" placeholder="e.g. Which 5 counties should get emergency funding first, and why?" />
+      <button id="chatSend">Ask</button>
+    </div>
+  </div>
+
+</main>
+
+<footer>Built on the KHS 2023/24 national household survey · CACI computed via DEA-BCC linear programming (PuLP) · SHAP explainability · Prototype for UbuntuNet Alliance / EU AfricaConnect4</footer>
+
+<script>
+let COUNTIES = [];
+let GEO = null;
+let currentMetric = 'urgency';
+const METRIC_META = {
+  urgency: {label:'Urgency Score', fmt:v=>v.toFixed(3), scale:[[0,'#1a7a4c'],[0.5,'#f5a524'],[1,'#e5484d']]},
+  aiRisk: {label:'AI Predicted Risk', fmt:v=>(v*100).toFixed(1)+'%', scale:[[0,'#1a7a4c'],[0.5,'#f5a524'],[1,'#e5484d']]},
+  caci: {label:'CACI Capacity', fmt:v=>v.toFixed(3), scale:[[0,'#e5484d'],[0.5,'#f5a524'],[1,'#1a7a4c']]},
+  disruptionRate: {label:'Disruption Rate', fmt:v=>(v*100).toFixed(1)+'%', scale:[[0,'#1a7a4c'],[0.5,'#f5a524'],[1,'#e5484d']]},
+  atRisk2026: {label:'Citizens At-Risk', fmt:v=>Math.round(v).toLocaleString(), scale:[[0,'#12233f'],[0.5,'#5b8cff'],[1,'#3fd0c9']]},
+};
+const TIER_CLASS = t => (t||'').replace(/\s.*/,'');
+
+async function boot(){
+  const [c, g] = await Promise.all([
+    fetch('counties.json').then(r=>r.json()),
+    fetch('kenya_counties.geojson').then(r=>r.json())
+  ]);
+  COUNTIES = c; GEO = g;
+  renderKPIs();
+  renderMap();
+  renderBar();
+  renderTable();
+  renderSuggestions();
+  document.getElementById('metricSelect').addEventListener('change', e=>{currentMetric=e.target.value; renderMap();});
+  document.getElementById('quadrantFilter').addEventListener('change', renderMap);
+  document.getElementById('chatSend').addEventListener('click', sendChat);
+  document.getElementById('chatInput').addEventListener('keydown', e=>{if(e.key==='Enter') sendChat();});
+}
+
+function renderKPIs(){
+  const totalAtRisk = COUNTIES.reduce((s,c)=>s+c.atRisk2026,0);
+  const totalPop = COUNTIES.reduce((s,c)=>s+c.pop2026,0);
+  const critical = COUNTIES.filter(c=>c.urgencyTier==='Critical').length;
+  const avgCaci = COUNTIES.reduce((s,c)=>s+c.caci,0)/COUNTIES.length;
+  const kpis = [
+    {label:'Citizens at compound climate risk (2026)', value:(totalAtRisk/1e6).toFixed(1)+'M', sub:`of ${(totalPop/1e6).toFixed(1)}M projected population`},
+    {label:'Counties in Critical urgency tier', value:critical, sub:'of 47 counties · immediate fund priority'},
+    {label:'Mean adaptation capacity (CACI)', value:avgCaci.toFixed(2), sub:'DEA-BCC, 1.0 = frontier efficiency'},
+    {label:'Model accuracy (HGB vs Logistic)', value:'0.881 AUC', sub:'+9.8% ROC-AUC, +14.5% PR-AUC over baseline'},
+  ];
+  document.getElementById('kpis').innerHTML = kpis.map(k=>`
+    <div class="kpi"><div class="label">${k.label}</div><div class="value">${k.value}</div><div class="sub">${k.sub}</div></div>
+  `).join('');
+}
+
+function renderMap(){
+  const meta = METRIC_META[currentMetric];
+  const qFilter = document.getElementById('quadrantFilter').value;
+  const filtered = COUNTIES.filter(c=>qFilter==='all' || c.quadrant===qFilter);
+  const activeSet = new Set(filtered.map(c=>c.county));
+  const byName = Object.fromEntries(COUNTIES.map(c=>[c.county,c]));
+
+  const locations = GEO.features.map(f=>f.properties.county);
+  const z = locations.map(n=>{
+    const c = byName[n];
+    if(!c || !activeSet.has(n)) return null;
+    return c[currentMetric];
+  });
+  const text = locations.map(n=>{
+    const c = byName[n];
+    if(!c) return n;
+    return `<b>${n}</b><br>${meta.label}: ${meta.fmt(c[currentMetric])}<br>Tier: ${c.urgencyTier}<br>Quadrant: ${c.quadrant}`;
+  });
+
+  const trace = [{
+    type:'choropleth',
+    geojson:GEO,
+    featureidkey:'properties.county',
+    locations, z, text,
+    hoverinfo:'text',
+    colorscale: meta.scale.map(([s,c])=>[s,c]),
+    marker:{line:{color:'#0b1220', width:0.8}},
+    colorbar:{title:{text:meta.label, font:{color:'#93a1bd', size:11}}, tickfont:{color:'#93a1bd', size:10}},
+    showscale:true,
+  }];
+
+  const layout = {
+    geo:{
+      fitbounds:'locations', visible:false,
+      bgcolor:'rgba(0,0,0,0)',
+    },
+    paper_bgcolor:'rgba(0,0,0,0)',
+    plot_bgcolor:'rgba(0,0,0,0)',
+    margin:{t:0,b:0,l:0,r:0},
+    dragmode:false,
+  };
+  Plotly.newPlot('map', trace, layout, {displayModeBar:false, responsive:true});
+  document.getElementById('map').on('plotly_click', ev=>{
+    const name = ev.points[0].location;
+    if(name) showDetail(name);
+  });
+}
+
+function renderBar(){
+  const top = [...COUNTIES].sort((a,b)=>b.urgency-a.urgency).slice(0,15).reverse();
+  const colors = top.map(c=>c.quadrant==='Q1: CRITICAL' ? '#e5484d' : c.quadrant==='Q2: PRIORITY' ? '#f5a524' : c.quadrant==='Q3: PREVENTATIVE' ? '#4a90e2' : '#2ecc71');
+  const trace = [{
+    type:'bar', orientation:'h',
+    x: top.map(c=>c.urgency), y: top.map(c=>c.county),
+    marker:{color:colors},
+    text: top.map(c=>c.urgency.toFixed(3)), textposition:'outside',
+    hovertext: top.map(c=>`${c.atRisk2026.toLocaleString()} at risk`), hoverinfo:'text+y',
+  }];
+  const layout = {
+    paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+    margin:{t:10,b:30,l:110,r:30},
+    xaxis:{color:'#93a1bd', gridcolor:'#1f2c44', range:[0,1]},
+    yaxis:{color:'#e8edf7'},
+    font:{size:11},
+  };
+  Plotly.newPlot('bar', trace, layout, {displayModeBar:false, responsive:true});
+}
+
+function renderTable(){
+  const tbody = document.querySelector('#tbl tbody');
+  tbody.innerHTML = [...COUNTIES].sort((a,b)=>b.urgency-a.urgency).map(c=>`
+    <tr data-name="${c.county}" style="cursor:pointer">
+      <td>${c.county}</td>
+      <td><span class="tag ${TIER_CLASS(c.urgencyTier)}">${c.urgencyTier}</span></td>
+      <td>${c.urgency.toFixed(3)}</td>
+      <td>${c.atRisk2026.toLocaleString()}</td>
+      <td>${c.quadrant.replace('Q1: ','').replace('Q2: ','').replace('Q3: ','').replace('Q4: ','')}</td>
+    </tr>
+  `).join('');
+  tbody.querySelectorAll('tr').forEach(tr=>tr.addEventListener('click',()=>showDetail(tr.dataset.name)));
+}
+
+function showDetail(name){
+  const c = COUNTIES.find(x=>x.county===name);
+  if(!c) return;
+  document.getElementById('detailTitle').textContent = c.county;
+  document.getElementById('detail').innerHTML = `
+    <b>${(c.atRisk2026).toLocaleString()}</b> citizens projected at compound climate risk in 2026 (of <b>${c.pop2026.toLocaleString()}</b> total).<br><br>
+    AI-predicted risk: <b>${(c.aiRisk*100).toFixed(1)}%</b> &nbsp;|&nbsp;
+    Observed disruption: <b>${(c.disruptionRate*100).toFixed(1)}%</b><br>
+    CACI adaptation capacity: <b>${c.caci.toFixed(3)}</b> (${c.caciTier}) &nbsp;|&nbsp;
+    Urgency tier: <b>${c.urgencyTier}</b><br>
+    Quadrant: <b>${c.quadrant}</b><br><br>
+    <b>Recommended intervention:</b> ${c.intervention}
+  `;
+  const trace=[{type:'bar', x:['AI Risk','Disruption','CACI Capacity','Urgency'],
+    y:[c.aiRisk, c.disruptionRate, c.caci, c.urgency],
+    marker:{color:['#e5484d','#f5a524','#2ecc71','#5b8cff']}}];
+  Plotly.newPlot('detailChart', trace, {
+    paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+    margin:{t:6,b:26,l:30,r:10}, yaxis:{range:[0,1], color:'#93a1bd', gridcolor:'#1f2c44'},
+    xaxis:{color:'#93a1bd'}, font:{size:10.5},
+  }, {displayModeBar:false, responsive:true});
+}
+
+function renderSuggestions(){
+  const qs = [
+    'Which counties need emergency funding first?',
+    'Explain Taita-Taveta\'s risk profile',
+    'What drives compound climate risk nationally?',
+    'Which counties have high risk but strong capacity?',
+    'Summarise the Q1 Critical quadrant',
+  ];
+  document.getElementById('suggest').innerHTML = qs.map(q=>`<button onclick="askQuick(this)">${q}</button>`).join('');
+}
+function askQuick(btn){
+  document.getElementById('chatInput').value = btn.textContent;
+  sendChat();
+}
+
+function appendMsg(role, html){
+  const log = document.getElementById('chatlog');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = (role==='user' ? '<b>You:</b> ' : '<b>Assistant:</b> ') + html;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
+}
+
+async function sendChat(){
+  const input = document.getElementById('chatInput');
+  const btn = document.getElementById('chatSend');
+  const q = input.value.trim();
+  if(!q) return;
+  appendMsg('user', q);
+  input.value='';
+  btn.disabled = true;
+  const thinking = appendMsg('bot', '<i>thinking…</i>');
+  try{
+    const res = await fetch('/api/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ question: q, data: COUNTIES })
+    });
+    const json = await res.json();
+    thinking.innerHTML = '<b>Assistant:</b> ' + (json.answer || json.error || 'No response.');
+  }catch(e){
+    thinking.innerHTML = '<b>Assistant:</b> Error reaching the assistant. Please try again.';
+  }
+  btn.disabled = false;
+  document.getElementById('chatlog').scrollTop = document.getElementById('chatlog').scrollHeight;
+}
+
+boot();
+</script>
+</body>
+</html>
