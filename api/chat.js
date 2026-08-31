@@ -1,7 +1,7 @@
 
 
 // /api/chat — RAG endpoint over the 47-county climate recommendation dataset.
-// Uses Groq API with llama-3.3-70b-versatile (free tier available at groq.com)
+// Uses Groq API with automatic model fallback (free key at console.groq.com/keys)
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -43,30 +43,40 @@ QUESTION: ${question}`;
     // Groq API endpoint
     const url = 'https://api.groq.com/openai/v1/chat/completions';
 
-    const groqRes = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: 'You are a climate adaptation decision-support assistant for Kenyan counties.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 500,
-      }),
-    });
+    const body = {
+      messages: [
+        { role: 'system', content: 'You are a climate adaptation decision-support assistant for Kenyan counties.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 500,
+    };
 
-    if (!groqRes.ok) {
-      const errText = await groqRes.text();
-      res.status(200).json({ answer: `Groq API error (${groqRes.status}). ${errText.slice(0, 200)}` });
-      return;
+    // Try models in order — some (e.g. Llama) require an Enterprise plan,
+    // so we fall back to self-serve production models automatically.
+    const MODELS = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
+    let json = null;
+    let lastErr = '';
+    for (const model of MODELS) {
+      const groqRes = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ ...body, model }),
+      });
+      if (groqRes.ok) {
+        json = await groqRes.json();
+        break;
+      }
+      lastErr = `(${model}) ${groqRes.status}: ${(await groqRes.text()).slice(0, 160)}`;
     }
 
-    const json = await groqRes.json();
+    if (!json) {
+      res.status(200).json({ answer: `Groq API error. ${lastErr}` });
+      return;
+    }
     const answer = json.choices?.[0]?.message?.content || 
       "I couldn't generate a response from the data. Try rephrasing your question.";
 

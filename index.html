@@ -219,7 +219,7 @@ function renderMap(){
   // Trace 1: base — the ENTIRE Kenyan map, every county in a muted neutral fill,
   // so the country silhouette is always visible. Clickable for full profiles.
   const baseTrace = {
-    type:'choropleth',
+    type:'choroplethmapbox',
     geojson:GEO,
     featureidkey:'properties.county',
     locations:allNames,
@@ -228,13 +228,13 @@ function renderMap(){
     hoverinfo:'text',
     showscale:false,
     colorscale:[[0,'#1c2a42'],[1,'#1c2a42']],
-    marker:{line:{color:'#31435f', width:0.7}},
+    marker:{opacity:0.6, line:{color:'#31435f', width:0.7}},
   };
 
   // Trace 2: active — only counties matching the quadrant filter, coloured by
   // the selected metric on a fixed 0..1 scale so the colourbar stays stable.
   const activeTrace = {
-    type:'choropleth',
+    type:'choroplethmapbox',
     geojson:GEO,
     featureidkey:'properties.county',
     locations:activeNames,
@@ -244,24 +244,23 @@ function renderMap(){
     zmin:0,
     zmax: currentMetric==='atRisk2026' ? Math.max(...COUNTIES.map(c=>c[currentMetric])) : 1,
     colorscale: meta.scale.map(([s,c])=>[s,c]),
-    marker:{line:{color:'#0b1220', width:0.9}},
+    marker:{opacity:0.95, line:{color:'#0b1220', width:0.9}},
     colorbar:{title:{text:meta.label, font:{color:'#93a1bd', size:11}}, tickfont:{color:'#93a1bd', size:10},
               len:0.75, thickness:14, x:1.0, outlinewidth:0},
     showscale:true,
   };
 
   const layout = {
-    geo:{
-      fitbounds:'locations', visible:false,
-      bgcolor:'rgba(0,0,0,0)',
-      showframe:false,
-      projection:{type:'mercator'},
+    mapbox:{
+      style:'carto-darkmatter',   // free dark basemap — no Mapbox token needed
+      center:{lon:37.9, lat:0.45},
+      zoom:5.0,
     },
     paper_bgcolor:'rgba(0,0,0,0)',
     plot_bgcolor:'rgba(0,0,0,0)',
     margin:{t:0,b:0,l:0,r:0},
   };
-  Plotly.newPlot('map', [baseTrace, activeTrace], layout, {displayModeBar:false, responsive:true});
+  Plotly.newPlot('map', [baseTrace, activeTrace], layout, {displayModeBar:false, responsive:true, scrollZoom:true});
   document.getElementById('map').on('plotly_click', ev=>{
     const name = ev.points[0].location;
     if(name) showDetail(name);
